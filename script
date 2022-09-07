@@ -1,0 +1,106 @@
+import requests
+from time import sleep
+from urllib.parse import quote
+
+weather_key = "put_your_key"
+geolocalisation_key = "put_your_key"
+
+def take_band(band_name):
+    print("Sprawdzam podany zespół...")
+    response_band_name_det = requests.get(f'https://www.theaudiodb.com/api/v1/json/2/search.php?s={band_name}')
+    band_name_det = response_band_name_det.json()
+    #print(band_name_det)
+    sleep(2)
+    if response_band_name_det.status_code == 200: 
+        return {'id': band_name_det['artists'][0]['idArtist'], 'name': band_name_det['artists'][0]['strArtist']}
+    else: 
+        return print("Brak podanego zespołu")
+        
+def take_albums(idArt):
+    print("Pobieram albumy...")
+    response_albmus_det = requests.get(f'https://theaudiodb.com/api/v1/json/2/album.php?i={idArt}')
+    albmus_det = response_albmus_det.json()
+    sleep(2)
+    if response_albmus_det.status_code == 200: 
+        return [albmus_det['idAlbum'] for albmus_det in albmus_det['album']]
+    else: print("Nie można pobrać albumów.")
+
+def take_tracks(id_album): 
+    new_one = []
+    response_take_tracks_det = requests.get(f'https://theaudiodb.com/api/v1/json/2/track.php?m={id_album}')
+    take_tracks_det = response_take_tracks_det.json()
+    sleep(2)
+    if response_take_tracks_det.status_code == 200:
+        for take_tracks_det in take_tracks_det['track']:
+            new_one.append(take_tracks_det['strTrack'])
+        return new_one
+    else: 
+        return print("Nie można pobrać utworów...")
+        
+
+def take_lyrics_songs(band_name, track_title):
+    print(f'Pobieram tekst piosenki dla {band_name} - {track_title}' )
+    try:
+        response = requests.get(f'https://api.lyrics.ovh/v1/{quote(band_name)}/{quote(track_title)}', timeout=15)
+        sleep(2)
+        lyrics_song = response.json()['lyrics']
+        return lyrics_song
+     except Exception:
+            print(f'Nie znaleziono tekstu piosenki dla {band_name} - {track_title}')
+    return None
+    
+def take_city(lyrics_song):
+    response_take_city_det = requests.post('https://geocode.xyz',
+                                           {'scantext': lyrics,
+                                            'geoit': 'json',
+                                            'sentiment': 'analysis',
+                                            'auth': GEOCODEXYZ_KEY})
+    if response_take_city_det == 200:
+        take_city_det = response.json()
+        if 'match' not in take_city_det:
+            print('Brak nazwy miasta w piosence.')
+            return []
+        if type(take_city_det['match']) == list:
+            return [take_city_det['location'] for take_city_det in take_city_det['match']]
+        else:
+            return [take_city_det['match']['location']]
+        return
+
+def take_weather(city):
+    response_take_weather_det = requests.get(f'http://api.openweathermap.org/data/2.5/weather', {'q': city, 'appid': OPENWEATHERMAPORG_KEY})
+    take_weather_det = response_take_weather_det.json()
+    if response_take_weather_det.status_code == 200:
+        return take_weather_det['weather'][0]['description']
+    else:
+        print(f'Nie znaleziono pogody dla:, {city}')
+    return None
+
+name_artist = input('Podaj nazwę zespołu: ')
+artist = take_band(name_artist)
+if artist: 
+    print(f'Znaleziono informację dla: {name_artist}')
+# Pobiera listę albumów 
+take_albums(artist['id'])
+
+# Lista z tytułami utworów
+track_list = []
+print("Pobieram nazwy utworów dla znalezionych albumów")
+for ele1 in take_albums(take_band("coldplay")['id']):
+    for ele in take_tracks(ele1):
+        track_list.append(ele)
+print(track_list) 
+
+
+for ele_track in track_list: 
+    lyrics_songs = take_lyrics_songs(artist['name'], ele_track)
+    if not lyrics_songs:
+        continue  
+    cities = take_city(lyrics_songs)
+    for ele in cities:
+        weather = take_weather(ele)
+        if weather:
+            print(f'Pogoda dla {city}: {weather} ({ele_track} - {name_artist["name"]}')
+
+else:
+    print(f'Nie znaleziono nazwy miasta w piosenkach: {name_artist}')
+
